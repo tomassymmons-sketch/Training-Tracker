@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Training">
+<title>Training Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f5f4f0;--surf:#fff;--surf2:#f0efe9;--surf3:#e8e6de;
+  --t:#1a1a18;--t2:#6b6b67;--t3:#9a9a95;
+  --b:rgba(0,0,0,0.09);--b2:rgba(0,0,0,0.16);
+  --acc:#185fa5;--acc-bg:#e6f1fb;--acc-t:#0c447c;
+  --g-bg:#eaf3de;--g-t:#27500a;
+  --a-bg:#faeeda;--a-t:#633806;
+  --tl-bg:#e1f5ee;--tl-t:#085041;
+  --co-bg:#faece7;--co-t:#4a1b0c;
+  --r:8px;--rl:12px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'SF Mono','Fira Code',ui-monospace,monospace;
+  --nav:60px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#161614;--surf:#1e1e1c;--surf2:#272725;--surf3:#302f2d;
+  --t:#f0efea;--t2:#9a9a95;--t3:#66665f;
+  --b:rgba(255,255,255,0.09);--b2:rgba(255,255,255,0.16);
+  --acc:#4a9de0;--acc-bg:#0d2840;--acc-t:#85c4f5;
+  --g-bg:#152808;--g-t:#9acc6a;
+  --a-bg:#2a1a05;--a-t:#f5c97a;
+  --tl-bg:#042b1e;--tl-t:#5fcfae;
+  --co-bg:#2a0e08;--co-t:#f0a080;
+}}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--t);font-family:var(--font);height:100%;overflow:hidden}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#hdr{flex-shrink:0;background:var(--surf);border-bottom:0.5px solid var(--b);padding:12px 16px 10px;z-index:50}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.hdr-title{font-size:17px;font-weight:600;letter-spacing:-0.3px}
+.phase-pill{font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;padding:4px 10px;border-radius:20px;background:var(--acc-bg);color:var(--acc-t)}
+.wk-row{display:flex;align-items:center;justify-content:space-between}
+.wk-lbl{font-size:13px;color:var(--t2)}
+.wk-btns{display:flex;align-items:center;gap:6px}
+.wk-btn{width:28px;height:28px;border-radius:50%;border:0.5px solid var(--b2);background:var(--surf2);color:var(--t2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
+.wk-btn:active{background:var(--surf3)}
+#views{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;padding-bottom:calc(var(--nav) + 12px);display:none}
+.view.active{display:block}
+#nav{flex-shrink:0;height:var(--nav);background:var(--surf);border-top:0.5px solid var(--b);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:none;color:var(--t3);font-family:var(--font);padding:8px 0}
+.nb.active{color:var(--acc)}
+.nb svg{width:20px;height:20px}
+.nb-lbl{font-size:10px;font-weight:500;letter-spacing:0.04em}
+/* Cards */
+.card{background:var(--surf);border:0.5px solid var(--b);border-radius:var(--rl);margin:10px 16px 0;overflow:hidden}
+.chdr{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;user-select:none}
+.chdr:active{background:var(--surf2)}
+.chtitle{font-size:14px;font-weight:500}
+.chsub{font-size:12px;color:var(--t2);margin-top:2px}
+.chev{font-size:11px;color:var(--t3);transition:transform 0.2s;flex-shrink:0}
+.chev.open{transform:rotate(180deg)}
+.cbody{border-top:0.5px solid var(--b)}
+/* Progress */
+.pwrap{height:3px;background:var(--surf2)}
+.pbar{height:3px;background:var(--acc);transition:width 0.3s;width:0%}
+/* Exercise rows */
+.exr{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:0.5px solid var(--b);transition:opacity 0.15s}
+.exr:last-of-type{border-bottom:none}
+.exr.done{opacity:0.32}
+.exr.done .exn{text-decoration:line-through}
+input[type=checkbox]{width:18px;height:18px;margin-top:1px;accent-color:var(--acc);flex-shrink:0;cursor:pointer}
+.exn{font-size:14px;line-height:1.4}
+.exm{font-size:12px;color:var(--t2);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+.exnote{font-size:11px;color:var(--t3);margin-top:3px;line-height:1.45;font-style:italic}
+/* Tags */
+.tag{font-size:9px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;padding:2px 7px;border-radius:12px;flex-shrink:0;display:inline-block}
+.tr{background:var(--g-bg);color:var(--g-t)}
+.td{background:var(--acc-bg);color:var(--acc-t)}
+.tl{background:var(--a-bg);color:var(--a-t)}
+.tn{background:var(--tl-bg);color:var(--tl-t)}
+/* Focus block */
+.fblock{padding:10px 14px 12px;border-top:0.5px solid var(--b);background:var(--surf2)}
+.flbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t3);font-weight:500;margin-bottom:5px}
+.fi{font-size:12px;color:var(--t2);padding:2px 0;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
+.fdot{width:3px;height:3px;border-radius:50%;background:var(--t3);margin-top:6px;flex-shrink:0}
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px 0}
+.stat{background:var(--surf);border:0.5px solid var(--b);border-radius:var(--r);padding:10px 12px}
+.slbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t2);font-weight:500}
+.sval{font-size:22px;font-weight:600;font-family:var(--mono);margin-top:2px}
+/* Day tabs */
+.dtabs{display:flex;gap:8px;padding:10px 16px 0}
+.dtab{flex:1;padding:9px 6px;border-radius:var(--r);border:0.5px solid var(--b);background:var(--surf);cursor:pointer;text-align:center}
+.dtab.active{border:2px solid var(--acc)}
+.dtl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t2);font-weight:500}
+.dtab.active .dtl{color:var(--acc-t)}
+.dtn{font-size:11px;color:var(--t);font-weight:500;margin-top:2px;line-height:1.3}
+/* Bottom bar */
+.bbar{position:sticky;bottom:0;background:var(--surf);border-top:0.5px solid var(--b);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:10}
+.bp{flex:1;padding:13px;border-radius:var(--r);border:0.5px solid var(--b2);background:var(--surf);color:var(--t);font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font)}
+.bp:active{background:var(--g-bg);color:var(--g-t)}
+.bs{padding:13px 14px;border-radius:var(--r);border:0.5px solid var(--b);background:var(--surf2);color:var(--t2);font-size:13px;cursor:pointer;font-family:var(--font)}
+.bs:active{background:var(--surf3)}
+/* Callout */
+.callout{margin:12px 16px 0;background:var(--tl-bg);border-radius:var(--rl);padding:12px 14px}
+.callout-title{font-size:12px;font-weight:600;color:var(--tl-t);margin-bottom:5px}
+.callout-item{font-size:12px;color:var(--tl-t);padding:2px 0;display:flex;gap:6px;line-height:1.45}
+/* Program */
+.phase-bar{display:flex;gap:3px;padding:12px 16px 0}
+.pseg{flex:1;height:6px;border-radius:3px;cursor:pointer;position:relative}
+.pseg.cur::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--t)}
+.pleg{display:flex;gap:10px;padding:8px 16px 0;flex-wrap:wrap}
+.pli{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
+.pdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.wacc{margin:10px 16px 0}
+.wrow{background:var(--surf);border:0.5px solid var(--b);border-radius:var(--r);margin-bottom:6px;overflow:hidden}
+.wrow.curwk{border:1.5px solid var(--acc)}
+.whdr{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;user-select:none}
+.whdr:active{background:var(--surf2)}
+.wnum{font-size:13px;font-weight:600;font-family:var(--mono);width:50px;flex-shrink:0}
+.wpill{font-size:10px;font-weight:500;padding:2px 8px;border-radius:12px}
+.wbadge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500}
+.wbody{display:none;border-top:0.5px solid var(--b);padding:12px 14px}
+.wbody.open{display:block}
+.wchg{background:var(--tl-bg);border-radius:var(--r);padding:10px 12px;margin-bottom:10px}
+.wchg-ttl{font-size:12px;font-weight:600;color:var(--tl-t);margin-bottom:4px}
+.wchg-item{font-size:12px;color:var(--tl-t);padding:2px 0;display:flex;gap:5px;line-height:1.4}
+.wdayblk{margin-bottom:10px}
+.wdaylbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;font-weight:600;color:var(--t3);margin-bottom:5px}
+.wexr{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--b)}
+.wexr:last-child{border-bottom:none}
+.wexn{font-size:13px;flex:1;line-height:1.4}
+.wexm{font-size:11px;color:var(--t2);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+/* History */
+.hcal{padding:12px 16px 0;display:flex;gap:3px;overflow-x:auto}
+.cday{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:28px}
+.cdate{font-size:9px;color:var(--t3)}
+.cdot{width:22px;height:22px;border-radius:50%;background:var(--surf2);border:0.5px solid var(--b);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--t2)}
+.cdot.has{background:var(--g-bg);color:var(--g-t);border-color:var(--g-t)}
+.cdot.today{border:1.5px solid var(--acc)}
+.scard{background:var(--surf);border:0.5px solid var(--b);border-radius:var(--rl);margin:10px 16px 0;overflow:hidden}
+.shdr{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer}
+.shdr:active{background:var(--surf2)}
+.sbody{display:none;border-top:0.5px solid var(--b);padding:12px 14px}
+.sbody.open{display:block}
+.snote{background:var(--surf2);border-radius:var(--r);padding:8px 10px;margin-bottom:8px;font-size:13px;color:var(--t2);font-style:italic}
+/* Charts */
+.cwrap{background:var(--surf);border:0.5px solid var(--b);border-radius:var(--rl);margin:10px 16px 0;padding:14px}
+.ctitle{font-size:13px;font-weight:500;margin-bottom:12px}
+/* Settings */
+.slbl{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:500;color:var(--t3);padding:16px 16px 4px}
+.ssect{background:var(--surf);border:0.5px solid var(--b);border-radius:var(--rl);margin:0 16px;overflow:hidden}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:0.5px solid var(--b)}
+.srow:last-child{border-bottom:none}
+.srow-lbl{font-size:14px}
+.srow-sub{font-size:12px;color:var(--t2);margin-top:1px}
+.sbtn{padding:10px 14px;border-radius:var(--r);border:0.5px solid var(--b2);background:transparent;color:var(--t);font-size:13px;cursor:pointer;font-family:var(--font);width:100%;text-align:left}
+.sbtn:active{background:var(--surf2)}
+/* Modal */
+.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center}
+.moverlay.open{display:flex}
+.modal{background:var(--surf);border-radius:var(--rl) var(--rl) 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:480px}
+.mttl{font-size:17px;font-weight:600;margin-bottom:6px}
+.msub{font-size:14px;color:var(--t2);margin-bottom:14px}
+textarea{width:100%;min-height:80px;padding:10px 12px;border:0.5px solid var(--b2);border-radius:var(--r);background:var(--surf2);color:var(--t);font-family:var(--font);font-size:14px;resize:none;margin-bottom:12px}
+textarea:focus{outline:none;border-color:var(--acc)}
+.mbtns{display:flex;gap:8px}
+/* Toast */
+.toast{position:fixed;bottom:calc(var(--nav) + 16px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--t);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;transition:all 0.25s;pointer-events:none;white-space:nowrap;z-index:300}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.empty{padding:40px 20px;text-align:center;color:var(--t3);font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <div class="hdr-top">
+      <span class="hdr-title">Training</span>
+      <span class="phase-pill" id="hphase">Phase 1 — Neuromotor Reset</span>
+    </div>
+    <div class="wk-row">
+      <span class="wk-lbl" id="hwk">Week 1 of 16</span>
+      <div class="wk-btns">
+        <button class="wk-btn" onclick="changeWeek(-1)">−</button>
+        <button class="wk-btn" onclick="changeWeek(1)">+</button>
+      </div>
+    </div>
+  </div>
+  <div id="views">
+    <div class="view active" id="view-today"></div>
+    <div class="view" id="view-program"></div>
+    <div class="view" id="view-history"></div>
+    <div class="view" id="view-progress"></div>
+    <div class="view" id="view-settings"></div>
+  </div>
+  <nav id="nav">
+    <button class="nb active" onclick="go('today')" id="nb-today">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="7" x2="10" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="nb-lbl">Today</span>
+    </button>
+    <button class="nb" onclick="go('program')" id="nb-program">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="2" x2="7" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="2" x2="13" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="6" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="6" y1="13" x2="10" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="nb-lbl">Program</span>
+    </button>
+    <button class="nb" onclick="go('history')" id="nb-history">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><polyline points="10,6 10,10 13,12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="nb-lbl">History</span>
+    </button>
+    <button class="nb" onclick="go('progress')" id="nb-progress">
+      <svg viewBox="0 0 20 20" fill="none"><polyline points="3,15 7,9 11,12 17,5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nb-lbl">Progress</span>
+    </button>
+    <button class="nb" onclick="go('settings')" id="nb-settings">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.05 5.05l1.41 1.41M13.54 13.54l1.41 1.41M5.05 14.95l1.41-1.41M13.54 6.46l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="nb-lbl">Settings</span>
+    </button>
+  </nav>
+</div>
+
+<div class="moverlay" id="moverlay" onclick="closeMod(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="mttl">Session complete</div>
+    <div class="msub">Add a note? (optional)</div>
+    <textarea id="mnote" placeholder="How did it feel? Any pain, wins, or things to note..."></textarea>
+    <div class="mbtns">
+      <button class="bp" onclick="saveSess()">Save session</button>
+      <button class="bs" onclick="closeMod()">Skip</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────
+
+const PH=[
+  {id:1,l:'Phase 1',s:'Neuromotor Reset',w:[1,2,3,4],c:'#0f6e56',cls:'p1'},
+  {id:2,l:'Phase 2',s:'Controlled Loading',w:[5,6,7,8],c:'#185fa5',cls:'p2'},
+  {id:3,l:'Phase 3',s:'Integration',w:[9,10,11,12],c:'#854f0b',cls:'p3'},
+  {id:4,l:'Phase 4',s:'Strength Accumulation',w:[13,14,15,16],c:'#993c1d',cls:'p4'},
+];
+
+const WC={
+  1:{h:'Phase 1 begins — Neuromotor Reset',i:['Breathing pattern and left thorax expansion is the entire priority','Bilateral hip thrust only — no single-leg yet','Day C: single-leg hopping in place, no rope','All load at 0.5 kg max — pattern over weight always']},
+  5:{h:'Phase 2 begins — Controlled Loading',i:['Rope introduced: 30-sec bouts, 30-sec walking rest','Single-leg hip thrust replaces bilateral on Day A','Rows and Y-T-W: increase to 1 kg','Reverse lunge: add 3 kg dumbbells']},
+  9:{h:'Phase 3 begins — Integration',i:['Bulgarian split squat as optional Day A finisher','Skipping: progress to 60-sec bouts, 4 rounds','Turkish get-up: increase to 1 kg','Day B: single-arm overhead press (1 kg) added']},
+  13:{h:'Phase 4 begins — Strength Accumulation',i:['BSS replaces reverse lunge on Day A','Single-leg RDL added after step-up on Day A','Skipping: 3–4 min total volume','Turkish get-up: 1.5–2 kg','Day B: increase all loads progressively weekly']},
+};
+
+const RST=[
+  {id:'r1',name:'Left sidelying breathing',reps:'2 min',note:'Right arm overhead. Breathe into LEFT lateral ribs only'},
+  {id:'r2',name:'Supine cervical self-traction',reps:'90 sec',note:'Hands behind head, chin tuck, gentle cranial lift. Decompresses upper cervical'},
+  {id:'r3',name:'90/90 breathing (feet elevated)',reps:'2 min',note:'Posterior pelvic tilt. Full exhale every breath. Feel ribs descend'},
+  {id:'r4',name:'Dead bug',sets:'3',reps:'6 reps',note:'Chin tucked, occiput on floor. Stop immediately if neck extends'},
+  {id:'r5',name:'Open book rotations',reps:'5 each + 3s hold',note:'Sidelying. Let arm weight load the rotation'},
+  {id:'r6',name:'Glute bridge march',reps:'10 reps, 3s hold',note:'Feel LEFT glute. If back fires first, regress to both feet'},
+  {id:'r7',name:'Cervical proprioception in bird dog',reps:'5 each direction',note:'Slow head turns in bird dog. Eyes open then eyes closed'},
+];
+
+const DAYS={
+  A:{title:'Posterior chain + left activation',sub:'6 exercises · 45–55 min',
+    focus:['Left glute must fire before QL — feel glute, not back','Slow tempo on all single-leg work — do not rush the eccentric','Left side always trained first','If back fires instead of glute, regress immediately'],
+    ex:[
+      {id:'a1',n:'Left clamshell with band',sets:'3',r:'15',lf:1,note:'Prime glute medius before any standing work',v:[]},
+      {id:'a2',n:'Hip thrust (bilateral)',sets:'3',r:'10',lf:1,note:'Feel glute contract, not lower back',
+        v:[{w:[5,6,7,8,9,10,11,12,13,14,15,16],n:'Single-leg hip thrust',r:'10 each',note:'Left first. Progress from bilateral once glute reliably fires'}]},
+      {id:'a3',n:'Reverse lunge',sets:'3',r:'8L / 6R',lf:1,note:'Bodyweight. Slow eccentric. Watch for lateral trunk shift',
+        v:[{w:[5,6,7,8],r:'8L / 6R',note:'Add 3 kg dumbbells'},{w:[9,10,11,12],r:'8L / 6R',note:'Increase load. BSS optional after this'},{w:[13,14,15,16],n:'Bulgarian split squat',r:'8L / 6R',note:'Replaces reverse lunge in Phase 4'}]},
+      {id:'a4',n:'Step-up with controlled eccentric',sets:'3',r:'8L / 6R',lf:1,note:'Left hip drop on descent = stop and reset',
+        v:[{w:[13,14,15,16],extra:{id:'a4x',n:'Single-leg RDL (left first)',sets:'3',r:'8',lf:1,note:'Phase 4 addition. Left glute must be reliably activating first'}}]},
+      {id:'a5',n:'Contralateral bird dog',sets:'3',r:'6',lf:0,note:'3-sec pause at top. Left glute + right shoulder — diagonal sling pattern',v:[]},
+      {id:'a6',n:'Half-kneeling Pallof press (band)',sets:'3',r:'10 each',lf:0,note:'Anti-rotation only. Brace before pressing, do not twist',v:[]},
+    ]},
+  B:{title:'Upper body + cervical stability',sub:'8 exercises · 45–55 min',
+    focus:['No cervical rotation during rows — elbow to ceiling only','Chin tucked throughout all pressing movements','Scapular timing comes before any load, every time','Left shoulder will feel weaker — that is the target'],
+    ex:[
+      {id:'b1',n:'Deep cervical flexor activation',sets:'3',r:'10',lf:0,note:'Lying. Gentle chin tuck + small nod. Zero neck strain',v:[]},
+      {id:'b2',n:'Prone Y-T-W',sets:'3',r:'8',lf:0,note:'0.5 kg or bodyweight. Reactivates lower and mid trap',
+        v:[{w:[5,6,7,8,9,10,11,12,13,14,15,16],r:'8',note:'1 kg. Lower trap squeeze at top of each rep'}]},
+      {id:'b3',n:'Band face pull / pull-apart',sets:'3',r:'15',lf:0,note:'External rotation at end range. Rear delt + lower trap synergy',
+        v:[{w:[13,14,15,16],note:'Superset: pull-apart then external rotation, no rest between'}]},
+      {id:'b4',n:'Single-arm dumbbell row',sets:'3',r:'10',lf:1,note:'Left first. Elbow to ceiling — zero cervical rotation',
+        v:[{w:[5,6,7,8],note:'1 kg. Elbow to ceiling'},{w:[9,10,11,12,13,14,15,16],note:'3 kg. Elbow to ceiling — zero cervical rotation'}]},
+      {id:'b5',n:'Serratus wall slide',sets:'3',r:'12',lf:0,note:'Protract scapula at top. Left will feel weaker — good',v:[]},
+      {id:'b6',n:'Scapular push-up + incline push-up',sets:'2',r:'10 each',lf:0,note:'Scapular push-up first to set timing, then incline immediately',
+        v:[{w:[5,6,7,8,9,10,11,12,13,14,15,16],note:'Progress incline toward full push-up when scapular timing is reliable'}]},
+      {id:'b7',n:'Band external rotation',sets:'3',r:'15',lf:1,note:'Left first. Elbow pinned at side throughout',
+        v:[{w:[9,10,11,12,13,14,15,16],extra:{id:'b7x',n:'Single-arm overhead press (left first)',sets:'2',r:'8',lf:1,note:'1 kg. Strict press. Watch left shoulder for side-lean'}}]},
+      {id:'b8',n:'Wall slides',sets:'2',r:'12',lf:0,note:'Arms flush to wall throughout. Slow and deliberate',v:[]},
+    ]},
+  C:{title:'Active mobility + coordination',sub:'6 exercises · 45–55 min',
+    focus:['Every stretch must have a loaded or active component — no passive holds','Skipping is technique and symmetry only — never fatigue-based','Turkish get-up exposes where movement breaks down — this is diagnostic','Single-leg hopping builds symmetric landing before any skipping'],
+    ex:[
+      {id:'c1',n:'Single-leg hopping (left first)',sets:'3',r:'15 each',lf:1,note:'Weeks 1–4: hop in place, no rope. Focus on quiet left-side landing',
+        v:[{w:[5,6],n:'Skipping bouts',sets:'3',r:'30 sec on / 30 sec walk',note:'Rope introduced. Watch for left hip drop'},{w:[7,8],n:'Skipping bouts',sets:'3',r:'45 sec on / 30 sec walk',note:'Alternating feet pattern. Rhythm over speed'},{w:[9,10,11,12],n:'Skipping bouts',sets:'4',r:'60 sec on / 30 sec walk',note:'Focus on symmetry of both sides'},{w:[13,14,15,16],n:'Skipping (volume)',sets:'',r:'3–4 min total',note:'Multiple bouts to reach volume. No fatigue-based work'}]},
+      {id:'c2',n:'90/90 active rotations with reach',sets:'3',r:'5 each',lf:1,note:'3 kg reach. Active rotation — left hip driving, not passive sitting',v:[]},
+      {id:'c3',n:'Half-kneeling hip flexor + overhead rotation',sets:'',r:'2 min each',lf:1,note:'Left hip flexor stretch + thoracic rotation simultaneously',v:[]},
+      {id:'c4',n:'Turkish get-up',sets:'3–5',r:'each side',lf:1,note:'Bodyweight. Left first. Note exactly where you hesitate',
+        v:[{w:[9,10,11,12],note:'1 kg. Left first. The hesitation point is your mobility target'},{w:[13,14,15,16],note:'1.5–2 kg. Aim for fluid, unbroken movement'}]},
+      {id:'c5',n:'Standing hip CARs',sets:'',r:'5 each side',lf:1,note:'Slow full range. Left arc will be smaller — that is your target to grow',v:[]},
+      {id:'c6',n:'Cat-cow with thoracic segmentation',sets:'',r:'10 reps',lf:0,note:'Move one vertebra at a time. Identify stuck segments',v:[]},
+    ]},
+};
+
+// ── STATE ─────────────────────────────────
+
+let S={day:'A',week:1,sessions:[],chk:{},chkDate:null,oWk:null,oSess:null,rOpen:true,mOpen:true};
+
+function load(){try{const r=localStorage.getItem('tt3');if(r)Object.assign(S,JSON.parse(r));}catch(e){}}
+function save(){try{localStorage.setItem('tt3',JSON.stringify(S));}catch(e){}}
+
+// ── UTILS ──────────────────────────────────
+
+function ph(w){return PH.find(p=>p.w.includes(w))||PH[3];}
+function meta(ex){return[ex.sets?ex.sets+' ×':'',ex.r].filter(Boolean).join(' ');}
+function tod(){return new Date().toISOString().split('T')[0];}
+function fmt(d){return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
+function rel(d){
+  const df=Math.round((Date.now()-new Date(d+'T12:00:00'))/86400000);
+  if(df===0)return'Today';if(df===1)return'Yesterday';
+  if(df<7)return df+' days ago';return Math.round(df/7)+' wks ago';
+}
+
+function getV(ex,week){
+  if(!ex.v||!ex.v.length)return{...ex,extra:null};
+  const m=[...ex.v].reverse().find(v=>v.w&&v.w.includes(week));
+  if(!m)return{...ex,extra:null};
+  return{...ex,n:m.n||ex.n,sets:m.sets!==undefined?m.sets:ex.sets,r:m.r||ex.r,note:m.note||ex.note,extra:m.extra||null};
+}
+
+function getExs(dk,week){
+  const out=[];
+  DAYS[dk].ex.forEach(e=>{
+    const v=getV(e,week);
+    out.push(v);
+    if(v.extra)out.push({...v.extra,v:[],extra:null});
+  });
+  return out;
+}
+
+function isUpd(ex,week){
+  if(week<=1||!ex.v||!ex.v.length)return false;
+  const a=getV(ex,week-1),b=getV(ex,week);
+  return a.n!==b.n||a.r!==b.r||a.note!==b.note;
+}
+
+function streak(){
+  if(!S.sessions.length)return 0;
+  const dates=[...new Set(S.sessions.map(s=>s.date))].sort().reverse();
+  const today=tod(),yest=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  if(dates[0]!==today&&dates[0]!==yest)return 0;
+  let n=1;
+  for(let i=1;i<dates.length;i++){
+    if((new Date(dates[i-1])-new Date(dates[i]))/86400000===1)n++;else break;
+  }
+  return n;
+}
+
+function wkSess(){
+  const d=new Date(),day=d.getDay(),diff=d.getDate()-day+(day===0?-6:1);
+  const mon=new Date(new Date().setDate(diff));mon.setHours(0,0,0,0);
+  return S.sessions.filter(s=>new Date(s.date)>=mon).length;
+}
+
+function longStreak(){
+  if(!S.sessions.length)return 0;
+  const dates=[...new Set(S.sessions.map(s=>s.date))].sort();
+  let max=1,cur=1;
+  for(let i=1;i<dates.length;i++){
+    if((new Date(dates[i])-new Date(dates[i-1]))/86400000===1){cur++;max=Math.max(max,cur);}else cur=1;
+  }
+  return max;
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── RENDER TODAY ──────────────────────────
+
+function rToday(){
+  const day=DAYS[S.day],exs=getExs(S.day,S.week);
+  const allK=[...RST.map(e=>e.id),...exs.map(e=>e.id)];
+  const rDone=RST.filter(e=>S.chk[e.id]).length;
+  const mDone=exs.filter(e=>S.chk[e.id]).length;
+  const chg=WC[S.week];
+  let h='';
+
+  if(chg&&[1,5,9,13].includes(S.week)){
+    h+=`<div class="callout"><div class="callout-title">This week — ${chg.h}</div>
+    ${chg.i.map(i=>`<div class="callout-item"><span>·</span><span>${i}</span></div>`).join('')}</div>`;
+  }
+
+  h+=`<div class="stats">
+    <div class="stat"><div class="slbl">Total</div><div class="sval">${S.sessions.length}</div></div>
+    <div class="stat"><div class="slbl">This week</div><div class="sval">${wkSess()}</div></div>
+    <div class="stat"><div class="slbl">Streak</div><div class="sval">${streak()}</div></div>
+  </div>`;
+
+  h+=`<div class="dtabs">${['A','B','C'].map(d=>{
+    const tits={A:'Posterior chain',B:'Upper body',C:'Active mobility'};
+    return`<div class="dtab${S.day===d?' active':''}" onclick="setDay('${d}')"><div class="dtl">Day ${d}</div><div class="dtn">${tits[d]}</div></div>`;
+  }).join('')}</div>`;
+
+  // Reset section
+  h+=`<div class="card"><div class="chdr" onclick="togSec('r')">
+    <div><div style="display:flex;align-items:center;gap:6px"><span class="tag tr">Reset</span><span class="chtitle">Reset phase</span></div>
+    <div class="chsub">Every session · 12–15 min · ${rDone}/${RST.length} done</div></div>
+    <span class="chev${S.rOpen?' open':''}" id="chev-r">▼</span>
+  </div>
+  <div class="cbody" id="sec-r" style="${S.rOpen?'':'display:none'}">
+    <div class="pwrap"><div class="pbar" id="pb-r" style="width:${Math.round(rDone/RST.length*100)}%"></div></div>
+    ${RST.map(ex=>`<div class="exr${S.chk[ex.id]?' done':''}" id="row-${ex.id}">
+      <input type="checkbox" ${S.chk[ex.id]?'checked':''} onchange="togChk('${ex.id}',this.checked)">
+      <div style="flex:1"><div class="exn">${ex.name}</div>
+      <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap"><span class="exm">${meta(ex)}</span><span class="exnote">${ex.note}</span></div>
+      </div></div>`).join('')}
+  </div></div>`;
+
+  // Main day section
+  h+=`<div class="card"><div class="chdr" onclick="togSec('m')">
+    <div><div style="display:flex;align-items:center;gap:6px"><span class="tag td">Day ${S.day}</span><span class="chtitle">${day.title}</span></div>
+    <div class="chsub">${day.sub} · ${mDone}/${exs.length} done</div></div>
+    <span class="chev${S.mOpen?' open':''}" id="chev-m">▼</span>
+  </div>
+  <div class="cbody" id="sec-m" style="${S.mOpen?'':'display:none'}">
+    ${exs.map(ex=>`<div class="exr${S.chk[ex.id]?' done':''}" id="row-${ex.id}">
+      <input type="checkbox" ${S.chk[ex.id]?'checked':''} onchange="togChk('${ex.id}',this.checked)">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="exn">${ex.n}</span>${ex.lf?'<span class="tag tl">Left first</span>':''}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap"><span class="exm">${meta(ex)}</span><span class="exnote">${ex.note}</span></div>
+      </div></div>`).join('')}
+    <div class="fblock"><div class="flbl">Session cues</div>
+    ${day.focus.map(f=>`<div class="fi"><span class="fdot"></span><span>${f}</span></div>`).join('')}
+    </div>
+  </div></div>`;
+
+  h+=`<div class="bbar"><button class="bp" onclick="openMod()">✓ Mark session complete</button><button class="bs" onclick="advDay()">Next →</button></div>`;
+  document.getElementById('view-today').innerHTML=h;
+}
+
+// ── RENDER PROGRAM ────────────────────────
+
+function rProgram(){
+  let h='';
+  h+=`<div class="pleg">${PH.map(p=>`<div class="pli"><div class="pdot" style="background:${p.c}"></div>${p.l}: ${p.s}</div>`).join('')}</div>`;
+  h+=`<div class="phase-bar">${Array.from({length:16},(_,i)=>{
+    const w=i+1,p=ph(w);
+    return`<div class="pseg${w===S.week?' cur':''}" style="background:${p.c}" title="Week ${w}" onclick="togWk(${w})"></div>`;
+  }).join('')}</div>`;
+
+  h+=`<div class="wacc">`;
+  for(let w=1;w<=16;w++){
+    const p=ph(w),chg=WC[w],isCur=w===S.week,isOpen=S.oWk===w;
+    h+=`<div class="wrow${isCur?' curwk':''}" id="wrow-${w}">
+      <div class="whdr" onclick="togWk(${w})">
+        <span class="wnum">Wk ${w}</span>
+        <span class="wpill" style="background:${p.c}22;color:${p.c}">${p.l}</span>
+        <div style="flex:1;display:flex;gap:5px;justify-content:flex-end;align-items:center">
+          ${chg?`<span class="wbadge" style="background:var(--tl-bg);color:var(--tl-t)">Changes</span>`:''}
+          ${isCur?`<span class="wbadge" style="background:var(--acc-bg);color:var(--acc-t)">Current</span>`:''}
+        </div>
+        <span class="chev${isOpen?' open':''}" style="margin-left:8px">▼</span>
+      </div>
+      <div class="wbody${isOpen?' open':''}" id="wbody-${w}">${isOpen?buildWk(w):''}</div>
+    </div>`;
+  }
+  h+=`</div>`;
+  document.getElementById('view-program').innerHTML=h;
+}
+
+function buildWk(week){
+  const chg=WC[week];
+  let h='';
+  if(chg){h+=`<div class="wchg"><div class="wchg-ttl">↑ ${chg.h}</div>${chg.i.map(i=>`<div class="wchg-item"><span>·</span><span>${i}</span></div>`).join('')}</div>`;}
+  ['A','B','C'].forEach(dk=>{
+    const exs=getExs(dk,week);
+    h+=`<div class="wdayblk"><div class="wdaylbl">Day ${dk} — ${DAYS[dk].title}</div>
+    ${exs.map(ex=>{
+      const upd=isUpd(ex,week);
+      return`<div class="wexr">
+        <div style="flex:1">
+          <span class="wexn">${ex.n}</span>
+          ${ex.lf?`<span class="tag tl" style="font-size:8px;padding:1px 5px;vertical-align:middle;margin-left:4px">L</span>`:''}
+          ${upd?`<span class="tag tn" style="font-size:8px;padding:1px 5px;vertical-align:middle;margin-left:4px">↑ Updated</span>`:''}
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;font-style:italic">${ex.note}</div>
+        </div>
+        <span class="wexm">${meta(ex)}</span>
+      </div>`;
+    }).join('')}</div>`;
+  });
+  return h;
+}
+
+// ── RENDER HISTORY ────────────────────────
+
+function rHistory(){
+  const sessDates=new Set(S.sessions.map(s=>s.date));
+  const today=tod();
+  let h=`<div class="hcal">`;
+  for(let i=27;i>=0;i--){
+    const d=new Date(Date.now()-i*86400000),iso=d.toISOString().split('T')[0];
+    const has=sessDates.has(iso),isT=iso===today;
+    h+=`<div class="cday"><div class="cdot${has?' has':''}${isT?' today':''}">${has?'✓':d.getDate()}</div><div class="cdate">${d.toLocaleDateString('en-GB',{weekday:'short'}).charAt(0)}</div></div>`;
+  }
+  h+=`</div>`;
+
+  if(!S.sessions.length){
+    h+=`<div class="empty">No sessions logged yet.<br>Complete your first session on the Today tab.</div>`;
+  }else{
+    [...S.sessions].sort((a,b)=>b.date.localeCompare(a.date)).forEach(sess=>{
+      const p=ph(sess.week),isOpen=S.oSess===sess.id;
+      h+=`<div class="scard"><div class="shdr" onclick="togSess('${sess.id}')">
+        <div><div style="font-size:14px;font-weight:500">${fmt(sess.date)}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+          <span class="tag td">Day ${sess.day}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:12px;background:${p.c}22;color:${p.c};font-weight:500">Wk ${sess.week}</span>
+          <span style="font-size:12px;color:var(--t2)">${rel(sess.date)}</span>
+        </div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span style="font-size:12px;color:var(--t2)">${sess.pct||0}%</span>
+          <span class="chev${isOpen?' open':''}">▼</span>
+        </div>
+      </div>
+      <div class="sbody${isOpen?' open':''}" id="sb-${sess.id}">
+        ${sess.note?`<div class="snote">"${sess.note}"</div>`:''}
+        ${(sess.log||[]).map(e=>`<div style="font-size:13px;color:var(--t2);padding:3px 0;display:flex;gap:6px"><span style="color:var(--t3)">·</span><span>${e}</span></div>`).join('')}
+        ${(!sess.log||!sess.log.length)&&!sess.note?`<div style="font-size:13px;color:var(--t3)">${sess.done||0} exercises completed</div>`:''}
+      </div></div>`;
+    });
+  }
+  document.getElementById('view-history').innerHTML=h;
+}
+
+// ── RENDER PROGRESS ───────────────────────
+
+let charts={};
+
+function rProgress(){
+  const weeksActive=new Set(S.sessions.map(s=>s.week)).size;
+  let h=`<div class="stats" style="grid-template-columns:repeat(2,1fr)">
+    <div class="stat"><div class="slbl">Total sessions</div><div class="sval">${S.sessions.length}</div></div>
+    <div class="stat"><div class="slbl">Current streak</div><div class="sval">${streak()}</div></div>
+    <div class="stat"><div class="slbl">Best streak</div><div class="sval">${longStreak()}</div></div>
+    <div class="stat"><div class="slbl">Weeks active</div><div class="sval">${weeksActive}</div></div>
+  </div>`;
+
+  if(!S.sessions.length){
+    h+=`<div class="empty" style="margin-top:24px">Complete sessions to see your progress charts here.</div>`;
+    document.getElementById('view-progress').innerHTML=h;return;
+  }
+
+  h+=`<div class="cwrap"><div class="ctitle">Sessions per week</div><canvas id="ch1" height="180"></canvas></div>`;
+  h+=`<div class="cwrap"><div class="ctitle">Phase progress — Week ${S.week} of 16</div><canvas id="ch2" height="180"></canvas></div>`;
+  h+=`<div class="cwrap"><div class="ctitle">Completion rate (last 20 sessions)</div><canvas id="ch3" height="180"></canvas></div>`;
+  document.getElementById('view-progress').innerHTML=h;
+  setTimeout(drawCharts,80);
+}
+
+function drawCharts(){
+  Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};
+  if(typeof Chart==='undefined')return;
+  const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const grid=dk?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.07)';
+  const tc=dk?'#9a9a95':'#6b6b67';
+  const ac=dk?'#4a9de0':'#185fa5';
+
+  const wk={};S.sessions.forEach(s=>{wk[s.week]=(wk[s.week]||0)+1;});
+  const wlbls=Object.keys(wk).sort((a,b)=>a-b);
+  const c1=document.getElementById('ch1');
+  if(c1)charts.s=new Chart(c1,{type:'bar',data:{labels:wlbls.map(w=>'Wk'+w),datasets:[{data:wlbls.map(w=>wk[w]),backgroundColor:wlbls.map(w=>ph(Number(w)).c+'cc'),borderRadius:4,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:grid},ticks:{color:tc,font:{size:11}}},y:{grid:{color:grid},ticks:{color:tc,font:{size:11},stepSize:1}}},responsive:true,maintainAspectRatio:true}});
+
+  const p=ph(S.week),wi=p.w.indexOf(S.week)+1,wt=p.w.length;
+  const c2=document.getElementById('ch2');
+  if(c2)charts.p=new Chart(c2,{type:'doughnut',data:{labels:[`${p.l}`,`Remaining`],datasets:[{data:[wi,wt-wi],backgroundColor:[p.c,dk?'#2a2a2c':'#f0efe9'],borderWidth:0}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataIndex===0?`Week ${wi} of ${wt} in ${p.l}`:''}}},cutout:'72%',responsive:true,maintainAspectRatio:true}});
+
+  const cd=[...S.sessions].sort((a,b)=>a.date.localeCompare(b.date)).slice(-20);
+  const c3=document.getElementById('ch3');
+  if(c3&&cd.length)charts.c=new Chart(c3,{type:'line',data:{labels:cd.map(s=>fmt(s.date).split(',')[0]),datasets:[{data:cd.map(s=>s.pct||0),borderColor:ac,backgroundColor:ac+'20',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:ac}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:grid},ticks:{color:tc,font:{size:10},maxRotation:30}},y:{min:0,max:100,grid:{color:grid},ticks:{color:tc,font:{size:11},callback:v=>v+'%'}}},responsive:true,maintainAspectRatio:true}});
+}
+
+// ── RENDER SETTINGS ───────────────────────
+
+function rSettings(){
+  const h=`
+  <div class="slbl">Session</div>
+  <div class="ssect">
+    <div class="srow">
+      <div><div class="srow-lbl">Current week</div><div class="srow-sub">Week ${S.week} of 16</div></div>
+      <div class="wk-btns"><button class="wk-btn" onclick="changeWeek(-1)">−</button><button class="wk-btn" onclick="changeWeek(1)">+</button></div>
+    </div>
+    <div class="srow">
+      <div><div class="srow-lbl">Current day</div><div class="srow-sub">Day ${S.day}</div></div>
+      <div style="display:flex;gap:6px">${['A','B','C'].map(d=>`<button onclick="setDay('${d}')" style="padding:6px 12px;border-radius:var(--r);border:0.5px solid ${S.day===d?'var(--acc)':'var(--b)'};background:${S.day===d?'var(--acc-bg)':'var(--surf2)'};color:${S.day===d?'var(--acc-t)':'var(--t2)'};font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font)">${d}</button>`).join('')}</div>
+    </div>
+  </div>
+  <div class="slbl">Data</div>
+  <div class="ssect">
+    <div class="srow">
+      <div><div class="srow-lbl">Sessions logged</div></div>
+      <span style="font-size:15px;font-family:var(--mono);font-weight:600">${S.sessions.length}</span>
+    </div>
+    <div class="srow" style="cursor:pointer" onclick="exportData()">
+      <div><div class="srow-lbl">Export history</div><div class="srow-sub">Download as JSON</div></div>
+      <span style="color:var(--t3);font-size:16px">↓</span>
+    </div>
+    <div class="srow" style="cursor:pointer" onclick="doReset()">
+      <div><div class="srow-lbl" style="color:#c0392b">Reset all data</div><div class="srow-sub">Clears all sessions and progress</div></div>
+    </div>
+  </div>
+  <div style="text-align:center;padding:28px 16px 8px;font-size:12px;color:var(--t3)">Corrective Training Tracker · Rehabilitation-focused program</div>`;
+  document.getElementById('view-settings').innerHTML=h;
+}
+
+// ── ACTIONS ───────────────────────────────
+
+function togChk(id,val){
+  S.chk[id]=val;
+  if(!S.chkDate)S.chkDate=tod();
+  save();
+  const row=document.getElementById('row-'+id);
+  if(row)row.classList.toggle('done',val);
+  updPbars();
+}
+
+function updPbars(){
+  const rk=RST.map(e=>e.id),rd=rk.filter(k=>S.chk[k]).length;
+  const b=document.getElementById('pb-r');
+  if(b)b.style.width=Math.round(rd/RST.length*100)+'%';
+  const rs=document.querySelector('#sec-r')?.previousElementSibling?.querySelector('.chsub');
+  if(rs)rs.textContent=`Every session · 12–15 min · ${rd}/${RST.length} done`;
+  const exs=getExs(S.day,S.week),md=exs.filter(e=>S.chk[e.id]).length;
+  const ms=document.querySelector('#sec-m')?.previousElementSibling?.querySelector('.chsub');
+  if(ms)ms.textContent=`${DAYS[S.day].sub} · ${md}/${exs.length} done`;
+}
+
+function togSec(id){
+  if(id==='r')S.rOpen=!S.rOpen; else S.mOpen=!S.mOpen;
+  const sec=document.getElementById('sec-'+id);
+  const chev=document.getElementById('chev-'+id);
+  const open=id==='r'?S.rOpen:S.mOpen;
+  if(sec)sec.style.display=open?'':'none';
+  if(chev)chev.classList.toggle('open',open);
+}
+
+function togWk(w){
+  S.oWk=S.oWk===w?null:w;
+  document.querySelectorAll('.wbody').forEach(el=>{el.classList.remove('open');});
+  document.querySelectorAll('.whdr .chev').forEach(el=>el.classList.remove('open'));
+  if(S.oWk){
+    const body=document.getElementById('wbody-'+w);
+    if(body){body.innerHTML=buildWk(w);body.classList.add('open');}
+    const hdr=document.getElementById('wrow-'+w)?.querySelector('.chev');
+    if(hdr)hdr.classList.add('open');
+    setTimeout(()=>document.getElementById('wrow-'+w)?.scrollIntoView({behavior:'smooth',block:'nearest'}),60);
+  }
+}
+
+function togSess(id){
+  S.oSess=S.oSess===id?null:id;
+  document.querySelectorAll('.sbody').forEach(el=>el.classList.remove('open'));
+  document.querySelectorAll('.shdr .chev').forEach(el=>el.classList.remove('open'));
+  if(S.oSess){
+    const b=document.getElementById('sb-'+id);if(b)b.classList.add('open');
+  }
+}
+
+function setDay(d){
+  S.day=d;S.chk={};S.chkDate=null;save();rToday();updHeader();
+}
+
+function advDay(){
+  const o=['A','B','C'];S.day=o[(o.indexOf(S.day)+1)%3];
+  S.chk={};S.chkDate=null;save();rToday();updHeader();
+}
+
+function changeWeek(d){
+  S.week=Math.max(1,Math.min(16,S.week+d));
+  S.chk={};S.chkDate=null;save();renderCur();updHeader();
+}
+
+function updHeader(){
+  const p=ph(S.week);
+  document.getElementById('hphase').textContent=`${p.l} — ${p.s}`;
+  document.getElementById('hwk').textContent=`Week ${S.week} of 16`;
+}
+
+function openMod(){
+  document.getElementById('mnote').value='';
+  document.getElementById('moverlay').classList.add('open');
+}
+
+function closeMod(e){
+  if(!e||e.target===document.getElementById('moverlay'))
+    document.getElementById('moverlay').classList.remove('open');
+}
+
+function saveSess(){
+  const note=document.getElementById('mnote').value.trim();
+  const today=tod();
+  const exs=getExs(S.day,S.week);
+  const allK=[...RST.map(e=>e.id),...exs.map(e=>e.id)];
+  const done=allK.filter(k=>S.chk[k]).length;
+  const pct=allK.length?Math.round(done/allK.length*100):0;
+  const log=exs.filter(e=>S.chk[e.id]).map(e=>e.n);
+  S.sessions.push({id:Date.now().toString(),date:today,day:S.day,week:S.week,phase:ph(S.week).id,note,done,pct,log});
+  closeMod();
+  toast(`Session saved! Day ${['A','B','C'][((['A','B','C'].indexOf(S.day)+1)%3)]} next.`);
+  advDay();
+}
+
+function exportData(){
+  const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download='training-history.json';a.click();
+}
+
+function doReset(){
+  if(confirm('Reset all data? This cannot be undone.')){
+    S={day:'A',week:1,sessions:[],chk:{},chkDate:null,oWk:null,oSess:null,rOpen:true,mOpen:true};
+    save();renderCur();updHeader();toast('Data reset');
+  }
+}
+
+// ── NAVIGATION ────────────────────────────
+
+let curView='today';
+
+function go(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('nb-'+v).classList.add('active');
+  curView=v;
+  if(v==='today')rToday();
+  else if(v==='program')rProgram();
+  else if(v==='history')rHistory();
+  else if(v==='progress')rProgress();
+  else if(v==='settings')rSettings();
+}
+
+function renderCur(){
+  if(curView==='today')rToday();
+  else if(curView==='program')rProgram();
+  else if(curView==='history')rHistory();
+  else if(curView==='progress')rProgress();
+  else if(curView==='settings')rSettings();
+}
+
+// ── INIT ──────────────────────────────────
+load();updHeader();rToday();
+</script>
+</body>
+</html>
